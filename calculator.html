@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nothing Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Ndot+57&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a0a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  /* Dot matrix background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .brand {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    opacity: 0.85;
+  }
+
+  .brand-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff0000;
+    box-shadow: 0 0 6px #ff0000;
+  }
+
+  .brand-name {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .calculator {
+    position: relative;
+    z-index: 1;
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 20px;
+    padding: 24px;
+    width: 320px;
+    box-shadow:
+      0 0 0 1px #000,
+      0 40px 80px rgba(0,0,0,0.8),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  /* Dot matrix display panel */
+  .display-panel {
+    background: #0d0d0d;
+    border: 1px solid #1e1e1e;
+    border-radius: 10px;
+    padding: 16px 18px 14px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    min-height: 110px;
+  }
+
+  /* Scanline overlay */
+  .display-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    border-radius: 10px;
+  }
+
+  .display-expression {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #444;
+    min-height: 18px;
+    text-align: right;
+    margin-bottom: 8px;
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .display-main {
+    font-size: 48px;
+    font-weight: 700;
+    text-align: right;
+    letter-spacing: -1px;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* Dot matrix effect via text shadow */
+    text-shadow:
+      0 0 20px rgba(255, 255, 255, 0.15);
+  }
+
+  .display-main.result {
+    color: #ff0000;
+    text-shadow: 0 0 20px rgba(255,0,0,0.4), 0 0 40px rgba(255,0,0,0.1);
+  }
+
+  .display-label {
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: #2a2a2a;
+    text-transform: uppercase;
+  }
+
+  /* Dot matrix decorative dots on display */
+  .dot-row {
+    position: absolute;
+    bottom: 10px;
+    left: 14px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .dot-row span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #1e1e1e;
+    display: block;
+  }
+
+  .dot-row span.active {
+    background: #ff0000;
+    box-shadow: 0 0 4px #ff0000;
+  }
+
+  /* Button grid */
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 10px;
+    height: 60px;
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 80ms, box-shadow 80ms, background 80ms;
+    position: relative;
+    outline: none;
+    letter-spacing: 0;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .btn:active {
+    transform: scale(0.94);
+  }
+
+  /* Number buttons */
+  .btn-num {
+    background: #1a1a1a;
+    color: #fff;
+    border: 1px solid #252525;
+    box-shadow: 0 4px 0 #0d0d0d, inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .btn-num:hover {
+    background: #202020;
+    border-color: #303030;
+  }
+
+  .btn-num:active {
+    box-shadow: 0 1px 0 #0d0d0d, inset 0 1px 0 rgba(255,255,255,0.04);
+    transform: scale(0.94) translateY(3px);
+  }
+
+  /* Operator buttons */
+  .btn-op {
+    background: #1c1c1c;
+    color: #ff0000;
+    border: 1px solid #2a2020;
+    box-shadow: 0 4px 0 #0d0d0d, inset 0 1px 0 rgba(255,0,0,0.05);
+    font-size: 20px;
+  }
+
+  .btn-op:hover {
+    background: #201818;
+    border-color: #3a1a1a;
+  }
+
+  .btn-op:active {
+    box-shadow: 0 1px 0 #0d0d0d;
+    transform: scale(0.94) translateY(3px);
+  }
+
+  /* Clear / function buttons */
+  .btn-fn {
+    background: #181818;
+    color: #888;
+    border: 1px solid #222;
+    box-shadow: 0 4px 0 #0d0d0d;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-fn:hover {
+    background: #1e1e1e;
+    color: #aaa;
+  }
+
+  .btn-fn:active {
+    box-shadow: 0 1px 0 #0d0d0d;
+    transform: scale(0.94) translateY(3px);
+  }
+
+  /* Equals — the red one */
+  .btn-eq {
+    background: #ff0000;
+    color: #fff;
+    border: 1px solid #cc0000;
+    box-shadow: 0 4px 0 #880000, 0 0 20px rgba(255,0,0,0.2);
+    font-size: 22px;
+    grid-column: span 1;
+  }
+
+  .btn-eq:hover {
+    background: #ff1a1a;
+    box-shadow: 0 4px 0 #880000, 0 0 30px rgba(255,0,0,0.35);
+  }
+
+  .btn-eq:active {
+    box-shadow: 0 1px 0 #880000, 0 0 20px rgba(255,0,0,0.3);
+    transform: scale(0.94) translateY(3px);
+    background: #cc0000;
+  }
+
+  /* Zero spans 2 columns */
+  .btn-zero {
+    grid-column: span 2;
+    letter-spacing: 4px;
+    font-size: 14px;
+  }
+
+  /* Dot indicator strip */
+  .indicator-strip {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+    padding: 0 2px;
+  }
+
+  .ind-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #1e1e1e;
+  }
+
+  .ind-dot.on {
+    background: #ff0000;
+    box-shadow: 0 0 5px #ff0000;
+  }
+
+  /* Bottom branding */
+  .footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 14px;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: #252525;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="brand-dot"></div>
+  <div class="brand-name">Nothing</div>
+</div>
+
+<div class="calculator">
+  <div class="display-panel">
+    <div class="display-label">CALC · 01</div>
+    <div class="display-expression" id="expression"></div>
+    <div class="display-main" id="display">0</div>
+    <div class="dot-row">
+      <span class="active"></span>
+      <span></span>
+      <span></span>
+      <span class="active"></span>
+      <span></span>
+      <span class="active"></span>
+    </div>
+  </div>
+
+  <div class="indicator-strip" id="indicator">
+    <div class="ind-dot"></div>
+    <div class="ind-dot"></div>
+    <div class="ind-dot"></div>
+    <div class="ind-dot"></div>
+    <div class="ind-dot"></div>
+    <div class="ind-dot on"></div>
+  </div>
+
+  <div class="buttons">
+    <!-- Row 1 -->
+    <button class="btn btn-fn" onclick="clearAll()">AC</button>
+    <button class="btn btn-fn" onclick="toggleSign()">+/−</button>
+    <button class="btn btn-fn" onclick="percent()">%</button>
+    <button class="btn btn-op" onclick="setOp('/')">÷</button>
+    <!-- Row 2 -->
+    <button class="btn btn-num" onclick="input('7')">7</button>
+    <button class="btn btn-num" onclick="input('8')">8</button>
+    <button class="btn btn-num" onclick="input('9')">9</button>
+    <button class="btn btn-op" onclick="setOp('*')">×</button>
+    <!-- Row 3 -->
+    <button class="btn btn-num" onclick="input('4')">4</button>
+    <button class="btn btn-num" onclick="input('5')">5</button>
+    <button class="btn btn-num" onclick="input('6')">6</button>
+    <button class="btn btn-op" onclick="setOp('-')">−</button>
+    <!-- Row 4 -->
+    <button class="btn btn-num" onclick="input('1')">1</button>
+    <button class="btn btn-num" onclick="input('2')">2</button>
+    <button class="btn btn-num" onclick="input('3')">3</button>
+    <button class="btn btn-op" onclick="setOp('+')">+</button>
+    <!-- Row 5 -->
+    <button class="btn btn-num btn-zero" onclick="input('0')">0</button>
+    <button class="btn btn-num" onclick="inputDot()">.</button>
+    <button class="btn btn-eq" onclick="calculate()">=</button>
+  </div>
+</div>
+
+<div class="footer">Phone · Ear · Watch · Calc</div>
+
+<script>
+  let current = '0';
+  let previous = '';
+  let operator = null;
+  let shouldReset = false;
+  let justCalculated = false;
+
+  const display = document.getElementById('display');
+  const expression = document.getElementById('expression');
+  const indicators = document.querySelectorAll('.ind-dot');
+
+  function updateDisplay(val, isResult = false) {
+    let formatted = val;
+    // Limit decimal display
+    if (!isNaN(val) && val.includes && val.includes('.')) {
+      const parts = val.split('.');
+      if (parts[1] && parts[1].length > 8) {
+        formatted = parseFloat(val).toPrecision(9).replace(/\.?0+$/, '');
+      }
+    }
+    // Shrink font for long numbers
+    const len = formatted.toString().length;
+    if (len > 9) display.style.fontSize = '28px';
+    else if (len > 6) display.style.fontSize = '36px';
+    else display.style.fontSize = '48px';
+
+    display.textContent = formatted;
+    display.className = 'display-main' + (isResult ? ' result' : '');
+
+    // Update indicator dots based on value
+    const num = Math.abs(parseFloat(formatted)) || 0;
+    const pattern = num > 0 ? Math.floor(num) % 63 : 0;
+    indicators.forEach((dot, i) => {
+      dot.className = 'ind-dot' + ((pattern >> i) & 1 ? ' on' : '');
+    });
+  }
+
+  function input(digit) {
+    if (justCalculated && !operator) {
+      current = digit;
+      expression.textContent = '';
+      justCalculated = false;
+      updateDisplay(current);
+      return;
+    }
+    if (shouldReset) {
+      current = digit;
+      shouldReset = false;
+    } else {
+      if (current === '0' && digit !== '.') current = digit;
+      else if (current.length < 12) current += digit;
+    }
+    updateDisplay(current);
+  }
+
+  function inputDot() {
+    if (shouldReset) { current = '0.'; shouldReset = false; updateDisplay(current); return; }
+    if (!current.includes('.')) {
+      current += '.';
+      updateDisplay(current);
+    }
+  }
+
+  function setOp(op) {
+    justCalculated = false;
+    if (operator && !shouldReset) {
+      calculate(true);
+    }
+    previous = current;
+    operator = op;
+    shouldReset = true;
+    const opSymbol = { '+': '+', '-': '−', '*': '×', '/': '÷' }[op];
+    expression.textContent = `${previous} ${opSymbol}`;
+    display.className = 'display-main';
+  }
+
+  function calculate(chained = false) {
+    if (!operator || !previous) return;
+    const a = parseFloat(previous);
+    const b = parseFloat(current);
+    let result;
+    const opSymbol = { '+': '+', '-': '−', '*': '×', '/': '÷' }[operator];
+
+    if (!chained) {
+      expression.textContent = `${previous} ${opSymbol} ${current} =`;
+    }
+
+    switch (operator) {
+      case '+': result = a + b; break;
+      case '-': result = a - b; break;
+      case '*': result = a * b; break;
+      case '/': result = b === 0 ? 'ERR' : a / b; break;
+    }
+
+    const resultStr = result === 'ERR' ? 'ERR' : String(parseFloat(result.toFixed(10)));
+    current = resultStr;
+    operator = chained ? operator : null;
+    shouldReset = true;
+    justCalculated = !chained;
+    updateDisplay(resultStr, !chained);
+  }
+
+  function clearAll() {
+    current = '0';
+    previous = '';
+    operator = null;
+    shouldReset = false;
+    justCalculated = false;
+    expression.textContent = '';
+    updateDisplay('0');
+  }
+
+  function toggleSign() {
+    if (current === '0' || current === 'ERR') return;
+    current = current.startsWith('-') ? current.slice(1) : '-' + current;
+    updateDisplay(current);
+  }
+
+  function percent() {
+    const val = parseFloat(current);
+    if (isNaN(val)) return;
+    current = String(val / 100);
+    updateDisplay(current);
+  }
+
+  // Keyboard support
+  document.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') input(e.key);
+    else if (e.key === '.') inputDot();
+    else if (e.key === '+') setOp('+');
+    else if (e.key === '-') setOp('-');
+    else if (e.key === '*') setOp('*');
+    else if (e.key === '/') { e.preventDefault(); setOp('/'); }
+    else if (e.key === 'Enter' || e.key === '=') calculate();
+    else if (e.key === 'Escape') clearAll();
+    else if (e.key === 'Backspace') {
+      if (current.length > 1) current = current.slice(0, -1);
+      else current = '0';
+      updateDisplay(current);
+    }
+    else if (e.key === '%') percent();
+  });
+
+  updateDisplay('0');
+</script>
+</body>
+</html>
